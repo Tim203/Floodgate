@@ -30,11 +30,12 @@ import com.mojang.authlib.GameProfile;
 import com.mojang.authlib.properties.Property;
 import com.mojang.authlib.properties.PropertyMap;
 import java.lang.reflect.Method;
-import java.util.Collection;
 import org.bukkit.Bukkit;
 import org.bukkit.entity.Player;
+import org.geysermc.floodgate.SpigotPlugin;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
+import org.geysermc.floodgate.config.FloodgateConfigHolder;
 import org.geysermc.floodgate.platform.pluginmessage.PluginMessageHandler;
 import org.geysermc.floodgate.skin.SkinHandler;
 import org.geysermc.floodgate.skin.SkinUploader.UploadResult;
@@ -50,8 +51,14 @@ public class SpigotSkinHandler extends SkinHandler {
         GET_PROFILE_METHOD = ReflectionUtils.getMethod(craftPlayerClass, "getProfile");
     }
 
-    public SpigotSkinHandler(PluginMessageHandler messageHandler, FloodgateLogger logger) {
+    private final SpigotPlugin plugin;
+    private final FloodgateConfigHolder configHolder;
+
+    public SpigotSkinHandler(PluginMessageHandler messageHandler, FloodgateLogger logger,
+                             SpigotPlugin plugin, FloodgateConfigHolder configHolder) {
         super(messageHandler, logger);
+        this.plugin = plugin;
+        this.configHolder = configHolder;
     }
 
     @Override
@@ -75,12 +82,15 @@ public class SpigotSkinHandler extends SkinHandler {
                 response.get("signature").getAsString());
         properties.put("textures", property);
 
-        //todo add config option, because this might cause some issues I guess?
-        for (Player p : Bukkit.getOnlinePlayers()) {
-            if (p != player) {
-                p.hidePlayer(player);
-                p.showPlayer(player);
-            }
+        if (configHolder.get().isApplySkinDirectly()) {
+            plugin.getServer().getScheduler().runTask(plugin, () -> {
+                for (Player p : Bukkit.getOnlinePlayers()) {
+                    if (p != player) {
+                        p.hidePlayer(plugin, player);
+                        p.showPlayer(plugin, player);
+                    }
+                }
+            });
         }
     }
 }
