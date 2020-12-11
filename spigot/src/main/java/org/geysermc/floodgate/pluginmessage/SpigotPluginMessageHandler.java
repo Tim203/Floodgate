@@ -30,7 +30,7 @@ import java.util.UUID;
 import org.bukkit.Bukkit;
 import org.bukkit.plugin.java.JavaPlugin;
 import org.bukkit.plugin.messaging.Messenger;
-import org.geysermc.common.form.Form;
+import org.geysermc.cumulus.Form;
 import org.geysermc.floodgate.api.FloodgateApi;
 import org.geysermc.floodgate.config.FloodgateConfigHolder;
 import org.geysermc.floodgate.platform.pluginmessage.PluginMessageHandler;

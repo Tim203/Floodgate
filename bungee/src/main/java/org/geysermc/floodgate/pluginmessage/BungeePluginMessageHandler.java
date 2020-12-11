@@ -39,7 +39,7 @@ import net.md_5.bungee.api.event.PluginMessageEvent;
 import net.md_5.bungee.api.plugin.Listener;
 import net.md_5.bungee.api.plugin.Plugin;
 import net.md_5.bungee.event.EventHandler;
-import org.geysermc.common.form.Form;
+import org.geysermc.cumulus.Form;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
 import org.geysermc.floodgate.config.FloodgateConfigHolder;
 import org.geysermc.floodgate.platform.pluginmessage.PluginMessageHandler;

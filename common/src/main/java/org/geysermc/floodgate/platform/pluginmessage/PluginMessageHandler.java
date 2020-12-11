@@ -30,7 +30,7 @@ import it.unimi.dsi.fastutil.shorts.Short2ObjectMap;
 import it.unimi.dsi.fastutil.shorts.Short2ObjectOpenHashMap;
 import java.util.UUID;
 import java.util.concurrent.atomic.AtomicInteger;
-import org.geysermc.common.form.Form;
+import org.geysermc.cumulus.Form;
 import org.geysermc.floodgate.config.FloodgateConfigHolder;
 import org.geysermc.floodgate.util.RawSkin;
 
