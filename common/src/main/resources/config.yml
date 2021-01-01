@@ -38,13 +38,20 @@ player-link:
   allowed: true
   # The amount of time until a link code expires in seconds
   link-code-timeout: 300
-  # The database type you want to use.
-  # The option is only used when auto-download is enabled or when
-  # there are more then one database implementations found in the config directory
-  type: sqlite
-  # Automatically download the database type you want to use
-  # Note that this doesn't include auto-update (database implementations don't have to be updated frequently)
-  auto-download: true
+  database:
+    # The database type you want to use.
+    # The option is only used when auto-download is enabled or when
+    # there are more then one database implementations found in the config directory
+    # current options: sqlite, mariadb
+    type: sqlite
+    # These settings are not used for sqlite, but are for others (like mariadb)
+    database: floodgate
+    username: floodgate
+    password: P4ssw0rd
+    hostname: localhost
+    # Automatically download the database type you want to use
+    # Note that this doesn't include auto-update (database implementations don't have to be updated frequently)
+    auto-download: true
 
 # Do not change this
 config-version: 1

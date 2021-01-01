@@ -84,7 +84,7 @@ public final class PlayerLinkLoader {
         Path implementationPath = files.get(0);
 
         // We only want to load one database implementation
-        String type = linkConfig.getType().toLowerCase();
+        String type = linkConfig.getDatabase().getType().toLowerCase();
         if (files.size() > 1) {
             implementationPath = null;
             for (Path path : files) {
@@ -94,7 +94,7 @@ public final class PlayerLinkLoader {
             }
             if (implementationPath == null) {
                 logger.error("Failed to find an implementation for type: {}",
-                        linkConfig.getType());
+                        linkConfig.getDatabase().getType());
                 return null;
             }
         }

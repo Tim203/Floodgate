@@ -70,7 +70,16 @@ public class FloodgateConfig {
         private boolean enabled;
         private boolean allowed;
         private long linkCodeTimeout;
+        private PlayerLinkDatabase database;
+    }
+
+    @Getter
+    public static class PlayerLinkDatabase {
         private String type;
+        private String database;
+        private String username;
+        private String password;
+        private String hostname;
         private boolean autoDownload;
     }
 }
