@@ -46,7 +46,7 @@ import org.geysermc.floodgate.link.LinkRequestImpl;
 import org.geysermc.floodgate.util.LinkedPlayer;
 import org.mariadb.jdbc.MariaDbPoolDataSource;
 
-public class MariaDBDatabase extends CommonPlayerLink {
+public class MariadbDatabase extends CommonPlayerLink {
     private MariaDbPoolDataSource pool;
 
     @Inject private FloodgateConfig config;
@@ -56,10 +56,12 @@ public class MariaDBDatabase extends CommonPlayerLink {
         try {
             Class.forName("org.mariadb.jdbc.Driver");
             PlayerLinkDatabase databaseconfig = config.getPlayerLink().getDatabase();
-            pool = new MariaDbPoolDataSource("jdbc:mariadb://" + databaseconfig.getHostname() + "/" +
-                    databaseconfig.getDatabase() +
-                    "?user=" + databaseconfig.getUsername() + "&password=" + databaseconfig.getPassword() +
-                    "&minPoolSize=2&maxPoolSize=10");
+            pool = new MariaDbPoolDataSource(
+                    "jdbc:mariadb://" + databaseconfig.getHostname() + "/" +
+                            databaseconfig.getDatabase() +
+                            "?user=" + databaseconfig.getUsername() + "&password=" +
+                            databaseconfig.getPassword() +
+                            "&minPoolSize=2&maxPoolSize=10");
 
             Connection connection = pool.getConnection();
             Statement statement = connection.createStatement();
@@ -103,14 +105,14 @@ public class MariaDBDatabase extends CommonPlayerLink {
                 PreparedStatement query = connection.prepareStatement(
                         "SELECT * FROM `LinkedPlayers` WHERE `bedrockId` = ?"
                 );
-                query.setBytes(1, UUIDtoBytes(bedrockId));
+                query.setBytes(1, uuidToBytes(bedrockId));
                 ResultSet result = query.executeQuery();
                 if (!result.next()) {
                     return null;
                 }
 
                 String javaUsername = result.getString("javaUsername");
-                UUID javaUniqueId = BytesToUuid(result.getBytes("javaUniqueId"));
+                UUID javaUniqueId = bytesToUUID(result.getBytes("javaUniqueId"));
                 return LinkedPlayer.of(javaUsername, javaUniqueId, bedrockId);
             } catch (SQLException | NullPointerException exception) {
                 getLogger().error("Error while getting LinkedPlayer", exception);
@@ -127,9 +129,9 @@ public class MariaDBDatabase extends CommonPlayerLink {
                 PreparedStatement query = connection.prepareStatement(
                         "SELECT * FROM `LinkedPlayers` WHERE `bedrockId` = ? OR `javaUniqueId` = ?"
                 );
-                byte[] uuidBytes = UUIDtoBytes(playerId);
-                query.setBytes( 1, uuidBytes);
-                query.setBytes( 2, uuidBytes);
+                byte[] uuidBytes = uuidToBytes(playerId);
+                query.setBytes(1, uuidBytes);
+                query.setBytes(2, uuidBytes);
                 ResultSet result = query.executeQuery();
                 return result.next();
             } catch (SQLException exception) {
@@ -156,8 +158,8 @@ public class MariaDBDatabase extends CommonPlayerLink {
                             "`javaUniqueId`=VALUES(`javaUniqueId`), " +
                             "`javaUsername`=VALUES(`javaUsername`);"
             );
-            query.setBytes(1, UUIDtoBytes(bedrockId));
-            query.setBytes(2, UUIDtoBytes(javaId));
+            query.setBytes(1, uuidToBytes(bedrockId));
+            query.setBytes(2, uuidToBytes(javaId));
             query.setString(3, javaUsername);
             query.executeUpdate();
         } catch (SQLException | NullPointerException exception) {
@@ -174,7 +176,7 @@ public class MariaDBDatabase extends CommonPlayerLink {
                 PreparedStatement query = connection.prepareStatement(
                         "DELETE FROM `LinkedPlayers` WHERE `javaUniqueId` = ? OR `bedrockId` = ?"
                 );
-                byte[] uuidBytes = UUIDtoBytes(javaId);
+                byte[] uuidBytes = uuidToBytes(javaId);
                 query.setBytes(1, uuidBytes);
                 query.setBytes(2, uuidBytes);
                 query.executeUpdate();
@@ -187,7 +189,7 @@ public class MariaDBDatabase extends CommonPlayerLink {
 
     @Override
     public CompletableFuture<String> createLinkRequest(UUID javaId, String javaUsername,
-                                                  String bedrockUsername) {
+                                                       String bedrockUsername) {
         return CompletableFuture.supplyAsync(() -> {
             String linkCode = createCode();
 
@@ -197,7 +199,8 @@ public class MariaDBDatabase extends CommonPlayerLink {
         }, getExecutorService());
     }
 
-    private void createLinkRequest0(String javaUsername, UUID javaId, String linkCode, String bedrockUsername) {
+    private void createLinkRequest0(String javaUsername, UUID javaId, String linkCode,
+                                    String bedrockUsername) {
         try {
             Connection connection = pool.getConnection();
             PreparedStatement query = connection.prepareStatement(
@@ -209,7 +212,7 @@ public class MariaDBDatabase extends CommonPlayerLink {
                             "`requestTime`=VALUES(`requestTime`);"
             );
             query.setString(1, javaUsername);
-            query.setBytes(2, UUIDtoBytes(javaId));
+            query.setBytes(2, uuidToBytes(javaId));
             query.setString(3, linkCode);
             query.setString(4, bedrockUsername);
             query.setLong(5, Instant.now().getEpochSecond());
@@ -228,7 +231,7 @@ public class MariaDBDatabase extends CommonPlayerLink {
             );
             query.setString(1, javaUsername);
             query.executeUpdate();
-        } catch (SQLException | NullPointerException exception ) {
+        } catch (SQLException | NullPointerException exception) {
             getLogger().error("Error while cleaning up LinkRequest", exception);
         }
     }
@@ -272,11 +275,12 @@ public class MariaDBDatabase extends CommonPlayerLink {
             ResultSet result = query.executeQuery();
 
             if (result.next()) {
-                UUID javaId = BytesToUuid(result.getBytes(2));
+                UUID javaId = bytesToUUID(result.getBytes(2));
                 String linkCode = result.getString(3);
                 String bedrockUsername = result.getString(4);
                 long requestTime = result.getLong(5);
-                return new LinkRequestImpl(javaUsername, javaId, linkCode, bedrockUsername, requestTime);
+                return new LinkRequestImpl(javaUsername, javaId, linkCode, bedrockUsername,
+                        requestTime);
             }
         } catch (SQLException | NullPointerException exception) {
             getLogger().error("Error while getLinkRequest", exception);
@@ -298,7 +302,7 @@ public class MariaDBDatabase extends CommonPlayerLink {
         }
     }
 
-    private byte[] UUIDtoBytes(UUID uuid) {
+    private byte[] uuidToBytes(UUID uuid) {
         byte[] uuidBytes = new byte[16];
         ByteBuffer.wrap(uuidBytes)
                 .order(ByteOrder.BIG_ENDIAN)
@@ -307,7 +311,7 @@ public class MariaDBDatabase extends CommonPlayerLink {
         return uuidBytes;
     }
 
-    private UUID BytesToUuid(byte[] uuidBytes) {
+    private UUID bytesToUUID(byte[] uuidBytes) {
         ByteBuffer buf = ByteBuffer.wrap(uuidBytes);
         return new UUID(buf.getLong(), buf.getLong());
     }
