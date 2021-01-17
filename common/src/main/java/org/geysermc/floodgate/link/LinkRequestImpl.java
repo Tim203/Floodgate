@@ -56,6 +56,7 @@ public final class LinkRequestImpl implements LinkRequest {
         this.requestTime = requestTime;
     }
 
+    @Override
     public boolean isExpired(long linkTimeout) {
         long timePassed = Instant.now().getEpochSecond() - requestTime;
         return timePassed > linkTimeout;

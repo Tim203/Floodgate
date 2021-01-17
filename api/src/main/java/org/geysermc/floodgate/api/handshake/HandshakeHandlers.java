@@ -23,38 +23,29 @@
  * @link https://github.com/GeyserMC/Floodgate
  */
 
-package org.geysermc.floodgate.platform.command;
+package org.geysermc.floodgate.api.handshake;
 
-import org.geysermc.floodgate.util.LanguageManager;
-
-/**
- * CommandMessage is the interface of a message that can be send to a command source after executing
- * a command. Messages are generally implemented using enums.
- */
-public interface CommandMessage {
+public interface HandshakeHandlers {
     /**
-     * Returns the message attached to the enum identifier
+     * Register a custom handshake handler. This can be used to check and edit the player during the
+     * handshake handling.
+     *
+     * @param handshakeHandler the handshake handler to register
+     * @return a random (unique) int to identify this handshake handler or -1 if null
      */
-    String getRawMessage();
+    int addHandshakeHandler(HandshakeHandler handshakeHandler);
 
     /**
-     * Returns the parts of this message (getRawMessage() split on " ")
+     * Removes a custom handshake handler by id.
+     *
+     * @param handshakeHandlerId the id of the handshake handler to remove
      */
-    String[] getTranslateParts();
+    void removeHandshakeHandler(int handshakeHandlerId);
 
-    default String translateMessage(LanguageManager manager, String locale, Object... args) {
-        String[] translateParts = getTranslateParts();
-        if (translateParts.length == 1) {
-            return manager.getString(getRawMessage(), locale, args);
-        }
-        // todo only works when one section has arguments
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < translateParts.length; i++) {
-            builder.append(manager.getString(translateParts[i], locale, args));
-            if (translateParts.length != i + 1) {
-                builder.append(" ");
-            }
-        }
-        return builder.toString();
-    }
+    /**
+     * Remove a custom handshake handler by instance.
+     *
+     * @param handshakeHandler the instance to remove
+     */
+    void removeHandshakeHandler(Class<? extends HandshakeHandler> handshakeHandler);
 }

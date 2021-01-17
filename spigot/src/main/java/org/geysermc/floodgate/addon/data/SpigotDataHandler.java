@@ -27,7 +27,6 @@ package org.geysermc.floodgate.addon.data;
 
 import static com.google.common.base.Preconditions.checkNotNull;
 import static org.geysermc.floodgate.util.ReflectionUtils.getCastedValue;
-import static org.geysermc.floodgate.util.ReflectionUtils.getField;
 import static org.geysermc.floodgate.util.ReflectionUtils.getFieldOfType;
 import static org.geysermc.floodgate.util.ReflectionUtils.getMethod;
 import static org.geysermc.floodgate.util.ReflectionUtils.getPrefixedClass;
@@ -43,18 +42,19 @@ import java.net.InetSocketAddress;
 import java.net.SocketAddress;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.geysermc.floodgate.api.handshake.HandshakeData;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
 import org.geysermc.floodgate.api.player.PropertyKey;
 import org.geysermc.floodgate.config.FloodgateConfig;
-import org.geysermc.floodgate.player.HandshakeHandler;
-import org.geysermc.floodgate.player.HandshakeHandler.HandshakeResult;
+import org.geysermc.floodgate.player.FloodgateHandshakeHandler;
+import org.geysermc.floodgate.player.FloodgateHandshakeHandler.HandshakeResult;
 import org.geysermc.floodgate.util.BedrockData;
 import org.geysermc.floodgate.util.ReflectionUtils;
+import org.geysermc.floodgate.util.SpigotUtils;
 
 @RequiredArgsConstructor
 public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object> {
-    private static final Field IS_BUNGEE_DATA;
     private static final Field SOCKET_ADDRESS;
     private static final Class<?> HANDSHAKE_PACKET;
     private static final Field HANDSHAKE_HOST;
@@ -76,10 +76,6 @@ public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object>
     private static final Object READY_TO_ACCEPT_PROTOCOL_STATE;
 
     static {
-        Class<?> spigotConfig = ReflectionUtils.getClass("org.spigotmc.SpigotConfig");
-        IS_BUNGEE_DATA = getField(spigotConfig, "bungee");
-        checkNotNull(IS_BUNGEE_DATA, "bungee field cannot be null. Are you using CraftBukkit?");
-
         Class<?> networkManager = getPrefixedClass("NetworkManager");
         checkNotNull(networkManager, "NetworkManager class cannot be null");
 
@@ -125,7 +121,7 @@ public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object>
         Enum<?>[] protocolStates = (Enum<?>[]) PROTOCOL_STATE.getType().getEnumConstants();
         Object readyToAcceptState = null;
         for (Enum<?> protocolState : protocolStates) {
-            if (protocolState.name().equals("READY_TO_ACCEPT")) {
+            if ("READY_TO_ACCEPT".equals(protocolState.name())) {
                 readyToAcceptState = protocolState;
             }
         }
@@ -156,10 +152,10 @@ public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object>
 
     /* per player stuff */
     private final FloodgateConfig config;
-    private final HandshakeHandler handshakeHandler;
+    private final FloodgateHandshakeHandler handshakeHandler;
     private final FloodgateLogger logger;
     private Object networkManager;
-    private FloodgatePlayer fPlayer;
+    private FloodgatePlayer player;
     private boolean bungeeData;
     private boolean done;
 
@@ -180,6 +176,13 @@ public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object>
 
                 String handshakeValue = getCastedValue(packet, HANDSHAKE_HOST);
                 HandshakeResult result = handshakeHandler.handle(ctx.channel(), handshakeValue);
+                HandshakeData handshakeData = result.getHandshakeData();
+
+                if (handshakeData.getDisconnectReason() != null) {
+                    ctx.close(); // todo disconnect with message
+                    return;
+                }
+
                 switch (result.getResultType()) {
                     case SUCCESS:
                         break;
@@ -195,24 +198,18 @@ public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object>
                         return;
                 }
 
-                fPlayer = result.getFloodgatePlayer();
-                BedrockData bedrockData = result.getBedrockData();
+                player = result.getFloodgatePlayer();
+                bungeeData = SpigotUtils.isBungeeData();
 
-                String[] data = result.getHandshakeData();
-                bungeeData = isBungeeData();
+                setValue(packet, HANDSHAKE_HOST, handshakeData.getHostname());
 
-                InetSocketAddress correctAddress = fPlayer.getProperty(PropertyKey.SOCKET_ADDRESS);
-
-                if (bungeeData) {
-                    setValue(packet, HANDSHAKE_HOST, data[0] + '\0' +
-                            bedrockData.getIp() + '\0' +
-                            fPlayer.getCorrectUniqueId() +
-                            (data.length == 5 ? '\0' + data[4] : ""));
-                } else {
+                if (!bungeeData) {
                     // Use a spoofedUUID for initUUID (just like Bungeecord)
-                    setValue(networkManager, "spoofedUUID", fPlayer.getCorrectUniqueId());
+                    setValue(networkManager, "spoofedUUID", player.getCorrectUniqueId());
+
                     // Use the player his IP for stuff instead of Geyser his IP
-                    setValue(networkManager, SOCKET_ADDRESS, correctAddress);
+                    InetSocketAddress address = player.getProperty(PropertyKey.SOCKET_ADDRESS);
+                    setValue(networkManager, SOCKET_ADDRESS, address);
                 }
             } else if (isLogin) {
                 if (!bungeeData) {
@@ -227,7 +224,7 @@ public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object>
 
                     // set the player his GameProfile, we can't change the username without this
                     Object gameProfile = GAME_PROFILE_CONSTRUCTOR.newInstance(
-                            fPlayer.getCorrectUniqueId(), fPlayer.getCorrectUsername()
+                            player.getCorrectUniqueId(), player.getCorrectUsername()
                     );
                     setValue(loginListener, LOGIN_PROFILE, gameProfile);
 
@@ -251,7 +248,7 @@ public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object>
                 ctx.fireChannelRead(packet);
             }
 
-            if (isHandshake && bungeeData || isLogin && !bungeeData || fPlayer == null) {
+            if (isHandshake && bungeeData || isLogin && !bungeeData || player == null) {
                 // we're done, we'll just wait for the loginSuccessCall
                 done = true;
             }
@@ -262,10 +259,5 @@ public final class SpigotDataHandler extends SimpleChannelInboundHandler<Object>
     public void exceptionCaught(ChannelHandlerContext ctx, Throwable cause) throws Exception {
         super.exceptionCaught(ctx, cause);
         cause.printStackTrace();
-    }
-
-    @SuppressWarnings("ConstantConditions")
-    private boolean isBungeeData() {
-        return ReflectionUtils.getCastedValue(null, IS_BUNGEE_DATA);
     }
 }

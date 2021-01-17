@@ -35,6 +35,7 @@ import org.geysermc.cumulus.util.FormBuilder;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
 import org.geysermc.floodgate.platform.pluginmessage.PluginMessageHandler;
 import org.geysermc.floodgate.player.FloodgatePlayerImpl;
+import org.geysermc.floodgate.util.Utils;
 
 @RequiredArgsConstructor
 public class SimpleFloodgateApi implements FloodgateApi {
@@ -42,23 +43,23 @@ public class SimpleFloodgateApi implements FloodgateApi {
     private final PluginMessageHandler pluginMessageHandler;
 
     @Override
-    public boolean isBedrockPlayer(UUID uuid) {
+    public boolean isFloodgatePlayer(UUID uuid) {
         return getPlayer(uuid) != null;
     }
 
     @Override
     public FloodgatePlayer getPlayer(UUID uuid) {
-        FloodgatePlayer player = players.get(uuid);
+        FloodgatePlayer selfPlayer = players.get(uuid);
         // bedrock players are always stored by their xuid,
         // so we return the instance if we know that the given uuid is a Floodgate uuid
-        if (player != null || isFloodgateId(uuid)) {
-            return player;
+        if (selfPlayer != null || isFloodgateId(uuid)) {
+            return selfPlayer;
         }
 
         // make it possible to find player by Java id (linked players)
-        for (FloodgatePlayer player1 : players.values()) {
-            if (player1.getCorrectUniqueId().equals(uuid)) {
-                return player1;
+        for (FloodgatePlayer player : players.values()) {
+            if (player.getCorrectUniqueId().equals(uuid)) {
+                return player;
             }
         }
         return null;
@@ -66,7 +67,7 @@ public class SimpleFloodgateApi implements FloodgateApi {
 
     @Override
     public UUID createJavaPlayerId(long xuid) {
-        return new UUID(0, xuid);
+        return Utils.getJavaUuid(xuid);
     }
 
     @Override
@@ -108,7 +109,7 @@ public class SimpleFloodgateApi implements FloodgateApi {
             }
 
             // removeLogin logic
-            if (!shouldRemove(selfPlayer, removeLogin)) {
+            if (!canRemove(selfPlayer, removeLogin)) {
                 return null;
             }
 
@@ -120,17 +121,15 @@ public class SimpleFloodgateApi implements FloodgateApi {
 
         // we still want to be able to remove a linked-player by his linked java uuid
         for (FloodgatePlayer player : players.values()) {
-            if (shouldRemove(player, removeLogin) && player.getCorrectUniqueId().equals(onlineId)) {
-                continue;
+            if (canRemove(player, removeLogin) && player.getCorrectUniqueId().equals(onlineId)) {
+                players.remove(player.getJavaUniqueId());
+                return player;
             }
-            players.remove(player.getJavaUniqueId());
-            return player;
         }
-
         return null;
     }
 
-    protected boolean shouldRemove(FloodgatePlayer player, boolean removeLogin) {
+    protected boolean canRemove(FloodgatePlayer player, boolean removeLogin) {
         FloodgatePlayerImpl impl = player.as(FloodgatePlayerImpl.class);
         return impl.isLogin() && removeLogin || !impl.isLogin() && !removeLogin;
     }

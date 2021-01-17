@@ -38,8 +38,12 @@ import java.nio.charset.StandardCharsets;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import java.util.UUID;
+import java.util.regex.Pattern;
 
 public class Utils {
+    private static final Pattern NON_UNIQUE_PREFIX = Pattern.compile("^[a-zA-Z0-9_]{0,16}$");
+
     /**
      * This method is used in Addons.<br> Most addons can be removed once the player associated to
      * the channel has been logged in, but they should also be removed once the inject is removed.
@@ -60,10 +64,11 @@ public class Utils {
         InputStream stream = Utils.class.getClassLoader().getResourceAsStream(resourcePath);
         try (BufferedReader reader = newBufferedReader(stream, StandardCharsets.UTF_8)) {
             List<String> result = new ArrayList<>();
-            for (;;) {
+            for (; ; ) {
                 String line = reader.readLine();
-                if (line == null)
+                if (line == null) {
                     break;
+                }
                 result.add(line);
             }
             return result;
@@ -78,5 +83,17 @@ public class Utils {
 
     public static String getLocale(Locale locale) {
         return locale.getLanguage() + "_" + locale.getCountry();
+    }
+
+    public static UUID getJavaUuid(long xuid) {
+        return new UUID(0, xuid);
+    }
+
+    public static UUID getJavaUuid(String xuid) {
+        return getJavaUuid(Long.parseLong(xuid));
+    }
+
+    public static boolean isUniquePrefix(String prefix) {
+        return !NON_UNIQUE_PREFIX.matcher(prefix).matches();
     }
 }

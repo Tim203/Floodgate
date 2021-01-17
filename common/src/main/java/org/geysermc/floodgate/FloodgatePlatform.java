@@ -29,11 +29,13 @@ import com.google.inject.Inject;
 import com.google.inject.Injector;
 import com.google.inject.Module;
 import com.google.inject.name.Named;
+import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.UUID;
 import org.geysermc.floodgate.api.FloodgateApi;
 import org.geysermc.floodgate.api.InstanceHolder;
+import org.geysermc.floodgate.api.handshake.HandshakeHandlers;
 import org.geysermc.floodgate.api.inject.PlatformInjector;
 import org.geysermc.floodgate.api.link.PlayerLink;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
@@ -43,6 +45,7 @@ import org.geysermc.floodgate.config.loader.ConfigLoader;
 import org.geysermc.floodgate.link.PlayerLinkLoader;
 import org.geysermc.floodgate.module.ConfigLoadedModule;
 import org.geysermc.floodgate.module.PostInitializeModule;
+import org.geysermc.floodgate.util.PrefixCheckTask;
 
 public class FloodgatePlatform {
     private static final UUID KEY = UUID.randomUUID();
@@ -55,8 +58,12 @@ public class FloodgatePlatform {
     private Injector guice;
 
     @Inject
-    public FloodgatePlatform(FloodgateApi api, PlatformInjector platformInjector,
-                             FloodgateLogger logger, Injector guice) {
+    public FloodgatePlatform(
+            FloodgateApi api,
+            PlatformInjector platformInjector,
+            FloodgateLogger logger,
+            Injector guice) {
+
         this.api = api;
         this.injector = platformInjector;
         this.logger = logger;
@@ -64,15 +71,18 @@ public class FloodgatePlatform {
     }
 
     @Inject
-    public void init(@Named("dataDirectory") Path dataDirectory, ConfigLoader configLoader,
-                     FloodgateConfigHolder configHolder) {
+    public void init(
+            @Named("dataDirectory") Path dataDirectory,
+            ConfigLoader configLoader,
+            FloodgateConfigHolder configHolder,
+            HandshakeHandlers handshakeHandlers) {
 
         if (!Files.isDirectory(dataDirectory)) {
             try {
                 Files.createDirectory(dataDirectory);
-            } catch (Exception exception) {
+            } catch (IOException exception) {
                 logger.error("Failed to create the data folder", exception);
-                throw new RuntimeException("Failed to create the data folder");
+                throw new RuntimeException("Failed to create the data folder", exception);
             }
         }
 
@@ -85,7 +95,7 @@ public class FloodgatePlatform {
         guice = guice.createChildInjector(new ConfigLoadedModule(config));
         PlayerLink link = guice.getInstance(PlayerLinkLoader.class).load();
 
-        InstanceHolder.setInstance(api, link, this.injector, KEY);
+        InstanceHolder.set(api, link, this.injector, handshakeHandlers, KEY);
     }
 
     public boolean enable(Module... postInitializeModules) {
@@ -105,6 +115,9 @@ public class FloodgatePlatform {
         }
 
         this.guice = guice.createChildInjector(new PostInitializeModule(postInitializeModules));
+
+        PrefixCheckTask.checkAndExecuteDelayed(config, logger);
+
         return true;
     }
 

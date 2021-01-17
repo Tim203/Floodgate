@@ -29,6 +29,7 @@ import static com.google.common.base.Preconditions.checkNotNull;
 import static org.geysermc.floodgate.util.ReflectionUtils.getCastedValue;
 import static org.geysermc.floodgate.util.ReflectionUtils.getField;
 import static org.geysermc.floodgate.util.ReflectionUtils.getPrefixedClass;
+import static org.geysermc.floodgate.util.ReflectionUtils.setValue;
 
 import io.netty.channel.ChannelHandlerContext;
 import io.netty.channel.SimpleChannelInboundHandler;
@@ -36,18 +37,20 @@ import io.netty.util.AttributeKey;
 import io.netty.util.ReferenceCountUtil;
 import java.lang.reflect.Field;
 import lombok.RequiredArgsConstructor;
-import org.geysermc.floodgate.api.ProxyFloodgateApi;
+import org.geysermc.floodgate.api.handshake.HandshakeData;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
+import org.geysermc.floodgate.api.player.PropertyKey;
 import org.geysermc.floodgate.config.ProxyFloodgateConfig;
-import org.geysermc.floodgate.player.HandshakeHandler;
-import org.geysermc.floodgate.player.HandshakeHandler.HandshakeResult;
+import org.geysermc.floodgate.player.FloodgateHandshakeHandler;
+import org.geysermc.floodgate.player.FloodgateHandshakeHandler.HandshakeResult;
 
 @RequiredArgsConstructor
 public final class VelocityProxyDataHandler extends SimpleChannelInboundHandler<Object> {
     private static final Field HANDSHAKE;
     private static final Class<?> HANDSHAKE_PACKET;
     private static final Field HANDSHAKE_SERVER_ADDRESS;
+    private static final Field REMOTE_ADDRESS;
 
     static {
         Class<?> iic = getPrefixedClass("connection.client.InitialInboundConnection");
@@ -61,12 +64,13 @@ public final class VelocityProxyDataHandler extends SimpleChannelInboundHandler<
 
         HANDSHAKE_SERVER_ADDRESS = getField(HANDSHAKE_PACKET, "serverAddress");
         checkNotNull(HANDSHAKE_SERVER_ADDRESS, "Address in the Handshake packet cannot be null");
+
+        Class<?> minecraftConnection = getPrefixedClass("connection.MinecraftConnection");
+        REMOTE_ADDRESS = getField(minecraftConnection, "remoteAddress");
     }
 
     private final ProxyFloodgateConfig config;
-    private final ProxyFloodgateApi api;
-    private final HandshakeHandler handshakeHandler;
-    private final AttributeKey<FloodgatePlayer> playerAttribute;
+    private final FloodgateHandshakeHandler handshakeHandler;
     private final AttributeKey<String> kickMessageAttribute;
     private final FloodgateLogger logger;
     private boolean done;
@@ -90,20 +94,33 @@ public final class VelocityProxyDataHandler extends SimpleChannelInboundHandler<
         String address = getCastedValue(packet, HANDSHAKE_SERVER_ADDRESS);
 
         HandshakeResult result = handshakeHandler.handle(ctx.channel(), address);
+        HandshakeData handshakeData = result.getHandshakeData();
+
+        if (handshakeData.getDisconnectReason() != null) {
+            ctx.channel().attr(kickMessageAttribute).set(handshakeData.getDisconnectReason());
+            return;
+        }
+
         switch (result.getResultType()) {
             case SUCCESS:
                 break;
             case EXCEPTION:
                 ctx.channel().attr(kickMessageAttribute).set(config.getDisconnect().getInvalidKey());
+                return;
             case INVALID_DATA_LENGTH:
                 ctx.channel().attr(kickMessageAttribute)
                         .set(config.getDisconnect().getInvalidArgumentsLength());
                 return;
-            default:
+            default: // only continue when SUCCESS
                 return;
         }
 
         FloodgatePlayer player = result.getFloodgatePlayer();
+
+        setValue(packet, HANDSHAKE_SERVER_ADDRESS, handshakeData.getHostname());
+
+        Object connection = ctx.pipeline().get("handler");
+        setValue(connection, REMOTE_ADDRESS, player.getProperty(PropertyKey.SOCKET_ADDRESS));
 
         logger.info("Floodgate player who is logged in as {} {} joined",
                 player.getCorrectUsername(), player.getCorrectUniqueId());

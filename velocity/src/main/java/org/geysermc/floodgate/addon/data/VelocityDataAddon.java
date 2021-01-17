@@ -32,13 +32,12 @@ import io.netty.util.AttributeKey;
 import org.geysermc.floodgate.api.ProxyFloodgateApi;
 import org.geysermc.floodgate.api.inject.InjectorAddon;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
-import org.geysermc.floodgate.api.player.FloodgatePlayer;
 import org.geysermc.floodgate.config.ProxyFloodgateConfig;
-import org.geysermc.floodgate.player.HandshakeHandler;
+import org.geysermc.floodgate.player.FloodgateHandshakeHandler;
 import org.geysermc.floodgate.util.Utils;
 
 public final class VelocityDataAddon implements InjectorAddon {
-    @Inject private HandshakeHandler handshakeHandler;
+    @Inject private FloodgateHandshakeHandler handshakeHandler;
     @Inject private ProxyFloodgateConfig config;
     @Inject private ProxyFloodgateApi api;
     @Inject private FloodgateLogger logger;
@@ -50,10 +49,6 @@ public final class VelocityDataAddon implements InjectorAddon {
     @Inject
     @Named("packetEncoder")
     private String packetEncoder;
-
-    @Inject
-    @Named("playerAttribute")
-    private AttributeKey<FloodgatePlayer> playerAttribute;
 
     @Inject
     @Named("kickMessageAttribute")
@@ -71,10 +66,7 @@ public final class VelocityDataAddon implements InjectorAddon {
         // The handler is already added so we should add our handler before it
         channel.pipeline().addBefore(
                 packetHandler, "floodgate_data_handler",
-                new VelocityProxyDataHandler(
-                        config, api, handshakeHandler, playerAttribute,
-                        kickMessageAttribute, logger
-                )
+                new VelocityProxyDataHandler(config, handshakeHandler, kickMessageAttribute, logger)
         );
     }
 

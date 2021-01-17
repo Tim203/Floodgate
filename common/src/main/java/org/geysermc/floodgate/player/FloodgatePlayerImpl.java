@@ -37,18 +37,18 @@ import lombok.Setter;
 import org.geysermc.floodgate.api.FloodgateApi;
 import org.geysermc.floodgate.api.InstanceHolder;
 import org.geysermc.floodgate.api.ProxyFloodgateApi;
+import org.geysermc.floodgate.api.handshake.HandshakeData;
 import org.geysermc.floodgate.api.link.PlayerLink;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
 import org.geysermc.floodgate.api.player.PropertyKey;
 import org.geysermc.floodgate.api.player.PropertyKey.Result;
-import org.geysermc.floodgate.config.FloodgateConfig;
-import org.geysermc.floodgate.config.FloodgateConfigHolder;
 import org.geysermc.floodgate.util.BedrockData;
 import org.geysermc.floodgate.util.DeviceOs;
 import org.geysermc.floodgate.util.InputMode;
 import org.geysermc.floodgate.util.LinkedPlayer;
 import org.geysermc.floodgate.util.RawSkin;
 import org.geysermc.floodgate.util.UiProfile;
+import org.geysermc.floodgate.util.Utils;
 
 @Getter
 @RequiredArgsConstructor(access = AccessLevel.PRIVATE)
@@ -79,39 +79,26 @@ public final class FloodgatePlayerImpl implements FloodgatePlayer {
      */
     @Setter private boolean login = true;
 
-    protected static FloodgatePlayerImpl from(BedrockData data, RawSkin skin,
-                                              FloodgateConfigHolder configHolder) {
+    protected static FloodgatePlayerImpl from(
+            BedrockData data,
+            HandshakeData handshakeData) {
+
         FloodgateApi api = FloodgateApi.getInstance();
-        FloodgateConfig config = configHolder.get();
 
-        String prefix = config.getUsernamePrefix();
-        int usernameLength = Math.min(data.getUsername().length(), 16 - prefix.length());
-        String javaUsername = prefix + data.getUsername().substring(0, usernameLength);
-        if (config.isReplaceSpaces()) {
-            javaUsername = javaUsername.replaceAll(" ", "_");
-        }
-
-        UUID javaUniqueId = api.createJavaPlayerId(Long.parseLong(data.getXuid()));
+        UUID javaUniqueId = Utils.getJavaUuid(data.getXuid());
 
         DeviceOs deviceOs = DeviceOs.getById(data.getDeviceOs());
         UiProfile uiProfile = UiProfile.getById(data.getUiProfile());
         InputMode inputMode = InputMode.getById(data.getInputMode());
 
-        LinkedPlayer linkedPlayer;
-
-        // we'll use the LinkedPlayer provided by Bungee or Velocity (if they included one)
-        if (data.hasPlayerLink()) {
-            linkedPlayer = data.getLinkedPlayer();
-        } else {
-            // every implementation (Bukkit, Bungee and Velocity) run this constructor async,
-            // so we should be fine doing this synchronised.
-            linkedPlayer = fetchLinkedPlayer(api.getPlayerLink(), javaUniqueId);
-        }
+        LinkedPlayer linkedPlayer = handshakeData.getLinkedPlayer();
+        RawSkin skin = handshakeData.getRawSkin();
 
         FloodgatePlayerImpl player = new FloodgatePlayerImpl(
-                data.getVersion(), data.getUsername(), javaUsername, javaUniqueId, data.getXuid(),
-                deviceOs, data.getLanguageCode(), uiProfile, inputMode, data.getIp(),
-                data.isFromProxy(), api instanceof ProxyFloodgateApi, linkedPlayer, skin);
+                data.getVersion(), data.getUsername(), handshakeData.getJavaUsername(),
+                javaUniqueId, data.getXuid(), deviceOs, data.getLanguageCode(), uiProfile,
+                inputMode, data.getIp(), data.isFromProxy(), api instanceof ProxyFloodgateApi,
+                linkedPlayer, skin);
 
         // RawSkin should be removed, fromProxy should be changed
         // and encrypted data can be changed after fetching the linkedPlayer
@@ -149,17 +136,20 @@ public final class FloodgatePlayerImpl implements FloodgatePlayer {
      * isn't enabled
      * @see #fetchLinkedPlayer(PlayerLink, UUID) for the sync version
      */
-    public static CompletableFuture<LinkedPlayer> fetchLinkedPlayerAsync(PlayerLink link,
-                                                                         UUID javaUniqueId) {
+    public static CompletableFuture<LinkedPlayer> fetchLinkedPlayerAsync(
+            PlayerLink link,
+            UUID javaUniqueId) {
         return link.isEnabled() ?
                 link.getLinkedPlayer(javaUniqueId) :
                 CompletableFuture.completedFuture(null);
     }
 
+    @Override
     public UUID getCorrectUniqueId() {
         return linkedPlayer != null ? linkedPlayer.getJavaUniqueId() : javaUniqueId;
     }
 
+    @Override
     public String getCorrectUsername() {
         return linkedPlayer != null ? linkedPlayer.getJavaUsername() : javaUsername;
     }

@@ -32,8 +32,10 @@ import com.google.inject.name.Named;
 import io.netty.util.AttributeKey;
 import java.nio.file.Path;
 import lombok.RequiredArgsConstructor;
+import org.geysermc.floodgate.addon.data.HandshakeHandlersImpl;
 import org.geysermc.floodgate.api.FloodgateApi;
 import org.geysermc.floodgate.api.SimpleFloodgateApi;
+import org.geysermc.floodgate.api.handshake.HandshakeHandlers;
 import org.geysermc.floodgate.api.inject.PlatformInjector;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
@@ -49,7 +51,7 @@ import org.geysermc.floodgate.crypto.Base64Topping;
 import org.geysermc.floodgate.crypto.FloodgateCipher;
 import org.geysermc.floodgate.crypto.KeyProducer;
 import org.geysermc.floodgate.inject.CommonPlatformInjector;
-import org.geysermc.floodgate.player.HandshakeHandler;
+import org.geysermc.floodgate.player.FloodgateHandshakeHandler;
 import org.geysermc.floodgate.util.LanguageManager;
 
 @RequiredArgsConstructor
@@ -60,6 +62,7 @@ public class CommonModule extends AbstractModule {
     protected void configure() {
         bind(FloodgateApi.class).to(SimpleFloodgateApi.class);
         bind(PlatformInjector.class).to(CommonPlatformInjector.class);
+        bind(HandshakeHandlers.class).to(HandshakeHandlersImpl.class);
     }
 
     @Provides
@@ -122,13 +125,28 @@ public class CommonModule extends AbstractModule {
 
     @Provides
     @Singleton
-    public HandshakeHandler handshakeHandler(
+    public HandshakeHandlersImpl handshakeHandlers() {
+        return new HandshakeHandlersImpl();
+    }
+
+    @Provides
+    @Singleton
+    public FloodgateHandshakeHandler handshakeHandler(
+            HandshakeHandlersImpl handshakeHandlers,
             SimpleFloodgateApi api,
             FloodgateCipher cipher,
             FloodgateConfigHolder configHolder,
-            @Named("playerAttribute") AttributeKey<FloodgatePlayer> playerAttribute
+            @Named("playerAttribute") AttributeKey<FloodgatePlayer> playerAttribute,
+            FloodgateLogger logger
     ) {
-        return new HandshakeHandler(api, cipher, configHolder, playerAttribute);
+        return new FloodgateHandshakeHandler(
+                handshakeHandlers,
+                api,
+                cipher,
+                configHolder,
+                playerAttribute,
+                logger
+        );
     }
 
     @Provides

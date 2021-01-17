@@ -23,38 +23,8 @@
  * @link https://github.com/GeyserMC/Floodgate
  */
 
-package org.geysermc.floodgate.platform.command;
+package org.geysermc.floodgate.util;
 
-import org.geysermc.floodgate.util.LanguageManager;
-
-/**
- * CommandMessage is the interface of a message that can be send to a command source after executing
- * a command. Messages are generally implemented using enums.
- */
-public interface CommandMessage {
-    /**
-     * Returns the message attached to the enum identifier
-     */
-    String getRawMessage();
-
-    /**
-     * Returns the parts of this message (getRawMessage() split on " ")
-     */
-    String[] getTranslateParts();
-
-    default String translateMessage(LanguageManager manager, String locale, Object... args) {
-        String[] translateParts = getTranslateParts();
-        if (translateParts.length == 1) {
-            return manager.getString(getRawMessage(), locale, args);
-        }
-        // todo only works when one section has arguments
-        StringBuilder builder = new StringBuilder();
-        for (int i = 0; i < translateParts.length; i++) {
-            builder.append(manager.getString(translateParts[i], locale, args));
-            if (translateParts.length != i + 1) {
-                builder.append(" ");
-            }
-        }
-        return builder.toString();
-    }
+public final class Constants {
+    public static final int LOGIN_SUCCESS_PACKET_ID = 2;
 }
