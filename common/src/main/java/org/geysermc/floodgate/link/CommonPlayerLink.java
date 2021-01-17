@@ -26,6 +26,7 @@
 package org.geysermc.floodgate.link;
 
 import com.google.inject.Inject;
+import com.google.inject.Injector;
 import java.util.Random;
 import java.util.UUID;
 import java.util.concurrent.ExecutorService;
@@ -37,6 +38,8 @@ import org.geysermc.floodgate.api.link.LinkRequest;
 import org.geysermc.floodgate.api.link.PlayerLink;
 import org.geysermc.floodgate.api.logger.FloodgateLogger;
 import org.geysermc.floodgate.config.FloodgateConfig;
+import org.geysermc.floodgate.database.config.DatabaseConfig;
+import org.geysermc.floodgate.database.config.DatabaseConfigLoader;
 
 public abstract class CommonPlayerLink implements PlayerLink {
     @Getter(AccessLevel.PROTECTED)
@@ -55,6 +58,9 @@ public abstract class CommonPlayerLink implements PlayerLink {
     private FloodgateApi api;
 
     @Inject
+    private Injector injector;
+
+    @Inject
     private void init(FloodgateConfig config) {
         FloodgateConfig.PlayerLinkConfig linkConfig = config.getPlayerLink();
         enabled = linkConfig.isEnabled();
@@ -68,6 +74,21 @@ public abstract class CommonPlayerLink implements PlayerLink {
 
     public boolean isRequestedPlayer(LinkRequest request, UUID bedrockId) {
         return request.isRequestedPlayer(api.getPlayer(bedrockId));
+    }
+
+    /**
+     * Get the config present in init.json and turn it into the given config class. This method will
+     * automatically copy and save the default config if the config doesn't exist.
+     *
+     * @param configClass the class to convert the config to
+     * @param <T>         the config type
+     * @return the loaded config or null if something went wrong.
+     * @see DatabaseConfigLoader#loadAs(Class)
+     */
+    public <T extends DatabaseConfig> T getConfig(Class<T> configClass) {
+        // this method is not intended to be used more than once. It'll make a new instance of
+        // DatabaseConfigLoader and DatabaseConfig every time you run this method.
+        return injector.getInstance(DatabaseConfigLoader.class).loadAs(configClass);
     }
 
     @Override
