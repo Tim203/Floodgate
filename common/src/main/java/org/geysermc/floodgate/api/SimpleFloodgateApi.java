@@ -25,6 +25,8 @@
 
 package org.geysermc.floodgate.api;
 
+import com.google.common.collect.ImmutableSet;
+import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
@@ -33,14 +35,25 @@ import lombok.RequiredArgsConstructor;
 import org.geysermc.cumulus.Form;
 import org.geysermc.cumulus.util.FormBuilder;
 import org.geysermc.floodgate.api.player.FloodgatePlayer;
-import org.geysermc.floodgate.platform.pluginmessage.PluginMessageHandler;
 import org.geysermc.floodgate.player.FloodgatePlayerImpl;
+import org.geysermc.floodgate.pluginmessage.PluginMessageManager;
+import org.geysermc.floodgate.pluginmessage.channel.FormChannel;
 import org.geysermc.floodgate.util.Utils;
 
 @RequiredArgsConstructor
 public class SimpleFloodgateApi implements FloodgateApi {
-    public final Map<UUID, FloodgatePlayer> players = new HashMap<>();
-    private final PluginMessageHandler pluginMessageHandler;
+    private final Map<UUID, FloodgatePlayer> players = new HashMap<>();
+    private final PluginMessageManager pluginMessageManager;
+
+    @Override
+    public Collection<FloodgatePlayer> getPlayers() {
+        return ImmutableSet.copyOf(players.values());
+    }
+
+    @Override
+    public int getPlayerCount() {
+        return players.size();
+    }
 
     @Override
     public boolean isFloodgatePlayer(UUID uuid) {
@@ -77,7 +90,7 @@ public class SimpleFloodgateApi implements FloodgateApi {
 
     @Override
     public boolean sendForm(UUID uuid, Form form) {
-        return pluginMessageHandler.sendForm(uuid, form);
+        return pluginMessageManager.getChannel(FormChannel.class).sendForm(uuid, form);
     }
 
     @Override
