@@ -26,6 +26,7 @@
 package org.geysermc.floodgate.database;
 
 import com.google.inject.Inject;
+import com.google.inject.name.Named;
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.sql.Connection;
@@ -37,31 +38,35 @@ import java.time.Instant;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
+import org.checkerframework.checker.nullness.qual.NonNull;
 import org.geysermc.floodgate.api.link.LinkRequest;
 import org.geysermc.floodgate.api.link.LinkRequestResult;
-import org.geysermc.floodgate.config.FloodgateConfig;
-import org.geysermc.floodgate.config.FloodgateConfig.PlayerLinkDatabase;
+import org.geysermc.floodgate.database.config.MariadbConfig;
 import org.geysermc.floodgate.link.CommonPlayerLink;
 import org.geysermc.floodgate.link.LinkRequestImpl;
 import org.geysermc.floodgate.util.LinkedPlayer;
 import org.mariadb.jdbc.MariaDbPoolDataSource;
 
 public class MariadbDatabase extends CommonPlayerLink {
-    private MariaDbPoolDataSource pool;
+    @Inject
+    @Named("databaseName")
+    private final String name = "mariadb";
 
-    @Inject private FloodgateConfig config;
+    private MariaDbPoolDataSource pool;
 
     @Override
     public void load() {
+        getLogger().info("Connecting to mariadb database...");
         try {
             Class.forName("org.mariadb.jdbc.Driver");
-            PlayerLinkDatabase databaseconfig = config.getPlayerLink().getDatabase();
+            MariadbConfig databaseconfig = getConfig(MariadbConfig.class);
             pool = new MariaDbPoolDataSource(
                     "jdbc:mariadb://" + databaseconfig.getHostname() + "/" +
                             databaseconfig.getDatabase() +
                             "?user=" + databaseconfig.getUsername() + "&password=" +
                             databaseconfig.getPassword() +
-                            "&minPoolSize=2&maxPoolSize=10");
+                            "&minPoolSize=2&maxPoolSize=10"
+            );
 
             Connection connection = pool.getConnection();
             Statement statement = connection.createStatement();
@@ -84,6 +89,7 @@ public class MariadbDatabase extends CommonPlayerLink {
                             " PRIMARY KEY (`javaUsername`), INDEX(`requestTime`)" +
                             " ) ENGINE = InnoDB;"
             );
+            getLogger().info("Connected to mariadb database.");
         } catch (ClassNotFoundException exception) {
             getLogger().error("The required class to load the MariaDB database wasn't found");
         } catch (SQLException exception) {
@@ -98,7 +104,8 @@ public class MariadbDatabase extends CommonPlayerLink {
     }
 
     @Override
-    public CompletableFuture<LinkedPlayer> getLinkedPlayer(UUID bedrockId) {
+    @NonNull
+    public CompletableFuture<LinkedPlayer> getLinkedPlayer(@NonNull UUID bedrockId) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Connection connection = pool.getConnection();
@@ -122,7 +129,8 @@ public class MariadbDatabase extends CommonPlayerLink {
     }
 
     @Override
-    public CompletableFuture<Boolean> isLinkedPlayer(UUID playerId) {
+    @NonNull
+    public CompletableFuture<Boolean> isLinkedPlayer(@NonNull UUID playerId) {
         return CompletableFuture.supplyAsync(() -> {
             try {
                 Connection connection = pool.getConnection();
@@ -144,7 +152,9 @@ public class MariadbDatabase extends CommonPlayerLink {
     }
 
     @Override
-    public CompletableFuture<Void> linkPlayer(UUID bedrockId, UUID javaId, String javaUsername) {
+    @NonNull
+    public CompletableFuture<Void> linkPlayer(@NonNull UUID bedrockId, @NonNull UUID javaId,
+                                              @NonNull String javaUsername) {
         return CompletableFuture.runAsync(
                 () -> linkPlayer0(bedrockId, javaId, javaUsername),
                 getExecutorService());
@@ -169,7 +179,8 @@ public class MariadbDatabase extends CommonPlayerLink {
     }
 
     @Override
-    public CompletableFuture<Void> unlinkPlayer(UUID javaId) {
+    @NonNull
+    public CompletableFuture<Void> unlinkPlayer(@NonNull UUID javaId) {
         return CompletableFuture.runAsync(() -> {
             try {
                 Connection connection = pool.getConnection();
@@ -188,8 +199,10 @@ public class MariadbDatabase extends CommonPlayerLink {
     }
 
     @Override
-    public CompletableFuture<String> createLinkRequest(UUID javaId, String javaUsername,
-                                                       String bedrockUsername) {
+    @NonNull
+    public CompletableFuture<String> createLinkRequest(
+            @NonNull UUID javaId, @NonNull String javaUsername,
+            @NonNull String bedrockUsername) {
         return CompletableFuture.supplyAsync(() -> {
             String linkCode = createCode();
 
@@ -237,10 +250,12 @@ public class MariadbDatabase extends CommonPlayerLink {
     }
 
     @Override
-    public CompletableFuture<LinkRequestResult> verifyLinkRequest(UUID bedrockId,
-                                                                  String javaUsername,
-                                                                  String bedrockUsername,
-                                                                  String code) {
+    @NonNull
+    public CompletableFuture<LinkRequestResult> verifyLinkRequest(
+            @NonNull UUID bedrockId,
+            @NonNull String javaUsername,
+            @NonNull String bedrockUsername,
+            @NonNull String code) {
         return CompletableFuture.supplyAsync(() -> {
             LinkRequest request = getLinkRequest0(javaUsername);
 
