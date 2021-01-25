@@ -50,14 +50,7 @@ player-link:
 #  # The database type you want to use.
 #  # The option is only used when there is more then one database implementations found
 #  # in the configuration directory
-#  database:
-#    type: sqlite
-#    hostname: localhost
-#    database: floodgate
-#    username: floodgate
-#    password: P4ssw0rd
-
-
+#  type: sqlite
 
 # Do not change this
 config-version: 1
